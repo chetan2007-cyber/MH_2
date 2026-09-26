@@ -1,0 +1,54 @@
+/**
+ * Kaushal Engineering Talent Infrastructure
+ * Shared Constants
+ */
+
+export const ROLES = {
+  CANDIDATE: 'CANDIDATE',
+  REVIEWER: 'REVIEWER',
+  RECRUITER: 'RECRUITER',
+  ADMIN: 'ADMIN',
+} as const;
+
+export type UserRole = typeof ROLES[keyof typeof ROLES];
+
+export const CAPABILITY_DIMENSIONS = {
+  BACKEND_APIS: 'BACKEND_APIS',
+  DATABASE_ENGINEERING: 'DATABASE_ENGINEERING',
+  SYSTEM_DESIGN: 'SYSTEM_DESIGN',
+  TESTING_RELIABILITY: 'TESTING_RELIABILITY',
+  PERFORMANCE_OPTIMIZATION: 'PERFORMANCE_OPTIMIZATION',
+  SECURITY_DEFENSE: 'SECURITY_DEFENSE',
+  DEVOPS_INFRASTRUCTURE: 'DEVOPS_INFRASTRUCTURE',
+} as const;
+
+export type CapabilityDimension = typeof CAPABILITY_DIMENSIONS[keyof typeof CAPABILITY_DIMENSIONS];
+
+export const SUBMISSION_STATUSES = {
+  IN_PROGRESS: 'IN_PROGRESS',
+  SUBMITTED: 'SUBMITTED',
+  TESTING: 'TESTING',
+  VERIFIED: 'VERIFIED',
+  REJECTED: 'REJECTED',
+} as const;
+
+export type SubmissionStatus = typeof SUBMISSION_STATUSES[keyof typeof SUBMISSION_STATUSES];
+
+export const EVIDENCE_TYPES = {
+  REPOSITORY: 'REPOSITORY',
+  TEST_RUN: 'TEST_RUN',
+  BENCHMARK_TELEMETRY: 'BENCHMARK_TELEMETRY',
+  ADR: 'ADR',
+  PEER_REVIEW: 'PEER_REVIEW',
+  DEFENSE_ROUND: 'DEFENSE_ROUND',
+  CHAOS_REPORT: 'CHAOS_REPORT',
+} as const;
+
+export type EvidenceType = typeof EVIDENCE_TYPES[keyof typeof EVIDENCE_TYPES];
+
+export const BRAND = {
+  NAME: 'Kaushal',
+  TAGLINE: "Don't claim your skills. Prove them.",
+  WORKFLOW: 'BUILD → DOCUMENT → REVIEW → VERIFY → RANK → DISCOVER → HIRE',
+  VERSION: '2.5',
+};

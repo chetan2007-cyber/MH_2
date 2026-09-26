@@ -1,0 +1,126 @@
+/* ==========================================================================
+   KAUSHAL GLOBAL STYLES & UTILITY CLASSES
+   Clean, Modern, Responsive Typography and Layout
+   ========================================================================== */
+
+@import './variables.css';
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar customization */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-subtle);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-medium);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* Modern Card */
+.kaushal-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.kaushal-card:hover {
+  border-color: var(--border-medium);
+  box-shadow: var(--shadow-md);
+}
+
+/* Badge Base */
+.kaushal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-full);
+  line-height: 1;
+}
+
+.kaushal-badge-emerald {
+  background: rgba(5, 150, 105, 0.08);
+  color: var(--emerald-verified);
+  border: 1px solid rgba(5, 150, 105, 0.25);
+}
+
+.kaushal-badge-cyan {
+  background: rgba(2, 132, 199, 0.08);
+  color: var(--cyan-primary);
+  border: 1px solid rgba(2, 132, 199, 0.25);
+}
+
+.kaushal-badge-amber {
+  background: rgba(217, 119, 6, 0.08);
+  color: var(--amber-warning);
+  border: 1px solid rgba(217, 119, 6, 0.25);
+}
+
+.kaushal-badge-purple {
+  background: rgba(124, 58, 237, 0.08);
+  color: var(--purple-accent);
+  border: 1px solid rgba(124, 58, 237, 0.25);
+}
+
+.kaushal-badge-slate {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Code snippet styling */
+pre, code {
+  font-family: var(--font-mono);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 0.4; }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2s infinite ease-in-out;
+}

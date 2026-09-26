@@ -1,0 +1,101 @@
+/* ==========================================================================
+   KAUSHAL DESIGN SYSTEM TOKENS
+   Tagline: "Don't claim your skills. Prove them."
+   SaaS-Grade Engineering Aesthetics (Stripe / Linear / Vercel Light Theme)
+   ========================================================================== */
+
+:root {
+  /* Canvas & Background Hierarchy (SaaS Light Default) */
+  --bg-app: #f8fafc;              /* Slate-50: Crisp, clean backdrop */
+  --bg-subtle: #f1f5f9;           /* Slate-100: Secondary surfaces & sidebars */
+  --bg-surface: #ffffff;          /* Pure White: Cards, modals, dropdowns */
+  --bg-surface-hover: #f8fafc;    /* Soft card hover */
+  --bg-surface-active: #eef2f6;   /* Active selection highlight */
+  --bg-glass: rgba(255, 255, 255, 0.94);
+
+  /* Semantic Aliases */
+  --bg-canvas: var(--bg-app);
+  --bg-card-hover: var(--bg-surface-hover);
+  --bg-active: var(--bg-surface-active);
+
+  /* Borders & Dividers */
+  --border-dim: #f1f5f9;
+  --border-subtle: #e2e8f0;       /* Crisp, modern 1px slate border */
+  --border-medium: #cbd5e1;       /* Active / hover border */
+  --border-strong: #94a3b8;
+  --border-focus: #0284c7;        /* Sky-600 focus ring */
+
+  /* High-Contrast Typography */
+  --text-main: #0f172a;           /* Slate-900: Deep charcoal readability */
+  --text-primary: var(--text-main);
+  --text-secondary: #475569;      /* Slate-600: Descriptions & metadata */
+  --text-muted: #64748b;          /* Slate-500: Subdued hints & icons */
+  --text-dim: var(--text-muted);
+  --text-disabled: #94a3b8;
+  --text-inverse: #ffffff;
+
+  /* Distinctive Indigo / Blue Primary Accent (SaaS Calm) */
+  --accent-primary: #4f46e5;      /* Indigo-600: Primary actions, buttons, active states */
+  --accent-hover: #4338ca;        /* Indigo-700: Hover state */
+  --accent-subtle: rgba(79, 70, 229, 0.08);
+  --accent-glow: rgba(79, 70, 229, 0.16);
+
+  /* Engineering Precision Secondary Accents */
+  --cyan-primary: #0284c7;        /* Sky-600: Architecture, technical connectors */
+  --cyan-hover: #0369a1;          /* Sky-700 */
+  --cyan-muted: #0284c7;
+  --cyan-glow: rgba(2, 132, 199, 0.12);
+  --cyan-subtle: rgba(2, 132, 199, 0.08);
+
+  --emerald-verified: #059669;    /* Emerald-600: Verified engineering badge */
+  --emerald-hover: #047857;
+  --emerald-glow: rgba(5, 150, 105, 0.12);
+  --emerald-subtle: rgba(5, 150, 105, 0.08);
+
+  --amber-warning: #d97706;       /* Amber-600: Pending / Defense */
+  --amber-subtle: rgba(217, 119, 6, 0.08);
+
+  --rose-error: #e11d48;          /* Rose-600: Failures / Warnings */
+  --rose-danger: var(--rose-error);
+  --rose-subtle: rgba(225, 29, 72, 0.08);
+
+  --purple-accent: #7c3aed;       /* Violet-600: Advanced challenge tier */
+  --purple-subtle: rgba(124, 58, 237, 0.08);
+
+  /* Modern SaaS Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+
+  /* Spacing Scale */
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+
+  /* Border Radii */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* Multi-Layered Soft SaaS Shadows */
+  --shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.03);
+  --shadow-xl: 0 20px 25px -5px rgba(15, 23, 42, 0.09), 0 8px 10px -6px rgba(15, 23, 42, 0.03);
+  --shadow-cyan: 0 4px 14px 0 rgba(2, 132, 199, 0.22);
+  --shadow-emerald: 0 4px 14px 0 rgba(5, 150, 105, 0.22);
+
+  /* Layout dimensions */
+  --topbar-height: 58px;
+  --sidebar-width: 250px;
+}

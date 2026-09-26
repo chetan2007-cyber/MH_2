@@ -1,0 +1,40 @@
+# KAUSHAL — Complete Frontend ↔ Backend Feature Matrix
+
+This document provides the exhaustive reconciliation between the frontend user interfaces, backend services, MongoDB models, and API endpoints across the master product workflow.
+
+---
+
+## Master Workflow Stages Matrix
+
+| # | Master Workflow Stage | Frontend Exists | Backend Exists | Database Exists | API Exists | Connected | Action Taken / Status |
+|---|---|---|---|---|---|---|---|
+| 1 | **User & Role Management** | YES | YES | YES (`User`, `Session`) | YES (`/api/auth/*`, `/api/users/*`) | YES | Authenticated session lifecycle, RBAC, and role routing verified. |
+| 2 | **Organization Creation** | YES | YES | YES (`Organization`) | YES (`/api/admin/*`, `/api/jobs`) | YES | Multi-organization scoping with hiring domains connected. |
+| 3 | **Create Job Requisition** | YES (`JobRequisitionsView`) | YES (`job.service.js`) | YES (`Job`) | YES (`POST /api/jobs`, `GET /api/jobs`) | YES | Job creation with experience, difficulty, and department connected. |
+| 4 | **AI Job Analyzer** | YES (`JobDNAModal`) | YES (`job.service.js`) | YES (`Job.jobDNA`) | YES (`POST /api/jobs/:id/analyze`) | YES | Real domain-specific technical & problem-solving dimension synthesis. |
+| 5 | **Job DNA** | YES (`JobDNAModal`) | YES (`job.service.js`) | YES (`Job.jobDNA`) | YES (`POST /api/jobs/:id/analyze`) | YES | Displays mandatory criteria, experience thresholds, and assessment types. |
+| 6 | **Competency Engine** | YES (`JobDNAModal`) | YES (`job.service.js`) | YES (`Job.competencies`) | YES (`PATCH /api/jobs/:id/competencies`) | YES | Dynamic weight calibration ensuring 100% mathematical sum. |
+| 7 | **AI Assessment Generator** | YES (`AssessmentGeneratorModal`) | YES (`assessment.service.js`) | YES (`Assessment`) | YES (`POST /api/assessments/generate`) | YES | AI-drafted practical tasks, constraints, tools, and expected deliverables. |
+| 8 | **Multi-Domain Assessment Types** | YES (`CandidateChallenges`, `WorkspaceStudio`) | YES (`assessment.service.js`) | YES (`Assessment`, `Challenge`) | YES (`GET /api/assessments/*`, `GET /api/challenges`) | YES | Code (Git), CAD (STEP/FEA), Finance (Spreadsheet/DCF), Creative (Stems/Design). |
+| 9 | **Difficulty Engine** | YES | YES | YES | YES | YES | Beginner, Intermediate, Advanced, and Expert tiers with calibrated effort hours. |
+| 10 | **HR Assessment Preview** | YES (`AssessmentGeneratorModal`) | YES (`assessment.service.js`) | YES (`Assessment`) | YES (`GET /api/assessments/:id`) | YES | Full scenario, deliverable requirements, and rubric inspection before release. |
+| 11 | **Assessment Versioning** | YES (`AssessmentGeneratorModal`) | YES (`assessment.service.js`) | YES (`Assessment.version`) | YES (`GET /api/assessments/job/:jobId`) | YES | Immutable published versions (v1, v2) with change notes and audit tracking. |
+| 12 | **Candidate Application** | YES (`CandidateChallenges`, `WorkspaceStudio`) | YES (`application.service.js`) | YES (`Application`) | YES (`POST /api/applications`, `GET /api/applications/my`) | YES | Objective job application submission and lifecycle tracking. |
+| 13 | **Eligibility Engine** | YES (`ApplicationsPipelineView`) | YES (`application.service.js`) | YES (`Application.eligibility`) | YES (`GET /api/applications/:id`) | YES | Objective domain alignment & prerequisite verification with explicit reasons. |
+| 14 | **Candidate Assessment Attempt** | YES (`WorkspaceStudio`, `CandidateChallenges`) | YES (`application.service.js`) | YES (`Application.assessmentAttempt`) | YES (`POST /api/applications/:id/submit-attempt`) | YES | Timed practical task submission with repositories, artifacts, and durations. |
+| 15 | **Integrity Engine & Anti-Cheating** | YES (`AutomatedTelemetryCard`) | YES (`AutomatedCheck.js`) | YES (`AutomatedCheck`) | YES (`GET /api/trust/integrity/*`) | YES | Hermetic container verification, race condition detection, and 0% risk flags. |
+| 16 | **Proof-of-Work & ADRs** | YES (`CandidatePassport`, `PublicProofView`) | YES (`submission.service.js`) | YES (`Submission`, `Project`, `ADR`) | YES (`GET /api/submissions/*`, `GET /api/passport/*`) | YES | Real Git repositories, ADR trade-off rationales, and test verification logs. |
+| 17 | **AI Evaluation** | YES (`EvidenceExplorerModal`) | YES (`application.service.js`) | YES (`Application.aiEvaluation`) | YES (`POST /api/applications/:id/evaluate`) | YES | Objective rubric scoring, strength/weakness vectors, and summary feedback. |
+| 18 | **Structured Rubric** | YES (`ReviewerInspector`, `EvidenceExplorerModal`) | YES (`assessment.service.js`, `review.service.js`) | YES (`Assessment.rubricCriteria`, `Review.scores`) | YES (`GET /api/reviews/rubric/*`) | YES | Standardized 5-point rubric criteria with domain-calibrated descriptions. |
+| 19 | **Human Review & Verification** | YES (`ReviewerQueue`, `ReviewerInspector`) | YES (`review.service.js`, `application.service.js`) | YES (`Review`, `Application.humanReview`) | YES (`POST /api/reviews`, `POST /api/applications/:id/review`) | YES | Human peer verification with AI agreement/disagreement consensus tracking. |
+| 20 | **Role-Fit Engine** | YES (`ApplicationsPipelineView`, `RecruiterSearch`) | YES (`application.service.js`) | YES (`Application.roleFit`) | YES (`GET /api/applications/:id`) | YES | Multi-competency weighted fit score calculated authoritative on backend. |
+| 21 | **Candidate Profile & Dossier** | YES (`RecruiterDossier`, `CandidatePassport`) | YES (`recruiter.service.js`, `passport.service.js`) | YES (`CandidateProfile`, `CapabilityScore`) | YES (`GET /api/recruiters/candidate/:id`, `GET /api/passport/:id`) | YES | Rich candidate dossier with verified proof items, skills, and defense records. |
+| 22 | **Evidence Explorer** | YES (`EvidenceExplorerModal`) | YES (`application.service.js`) | YES (`Application`, `Submission`, `ADR`) | YES (`GET /api/applications/:id`) | YES | End-to-end traceability: Role Fit → Competency → Assessment → Submission → ADR → Evaluation → Verification. |
+| 23 | **Candidate Comparison** | YES (`RecruiterCompare`, `RecruiterSearch`) | YES (`recruiter.service.js`) | YES (`CapabilityScore`, `CandidateProfile`) | YES (`GET /api/recruiters/discover`) | YES | Side-by-side multi-candidate capability and evidence benchmark matrix. |
+| 24 | **Why Shortlisted** | YES (`ApplicationsPipelineView`, `RecruiterSearch`) | YES (`application.service.js`) | YES (`Application.whyShortlisted`) | YES (`GET /api/applications/:id`) | YES | Explicit proof-backed justifications, mandatory requirements met, and scores. |
+| 25 | **AI Interview Generator** | YES (`InterviewGeneratorModal`) | YES (`interview.service.js`) | YES (`Interview.generatedQuestions`) | YES (`GET /api/interviews/questions/:id`) | YES | Generates candidate-specific defense questions grounded in submitted ADRs. |
+| 26 | **Interview Scorecard** | YES (`InterviewGeneratorModal`) | YES (`interview.service.js`) | YES (`Interview.scorecard`) | YES (`POST /api/interviews/:id/scorecard`) | YES | Persistent 5-point criteria scoring, interviewer notes, and recommendation. |
+| 27 | **Final HR Decision** | YES (`FinalDecisionModal`) | YES (`application.service.js`) | YES (`Application.finalDecision`) | YES (`POST /api/applications/:id/decision`) | YES | Select, Hold, or Reject with decision memo, actor timestamp, and audit trail. |
+| 28 | **Feedback Loop & Notifications** | YES (`Topbar`, `NotificationDropdown`) | YES (`notificationController.js`) | YES (`Notification`) | YES (`GET /api/notifications`, `PATCH /api/notifications/:id/read`) | YES | Real-time event notifications for candidates, reviewers, and recruiters. |
+| 29 | **Recruiter Analytics** | YES (`RecruiterAnalyticsView`) | YES (`analytics.service.js`) | YES (`Job`, `Application`, `Review`) | YES (`GET /api/analytics/recruiter`) | YES | Pipeline funnel, conversion efficiencies, time to proof, and reviewer agreement. |
+| 30 | **Immutable Audit Log** | YES (`AuditLogView`, `AdminView`) | YES (`admin.service.js`) | YES (`AuditLog`) | YES (`GET /api/admin/audit-logs`) | YES | Structured audit trail recording every state change, actor, and resource. |
