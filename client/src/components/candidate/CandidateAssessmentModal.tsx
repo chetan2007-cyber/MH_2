@@ -7,6 +7,8 @@ import { applicationService, type SubmitAttemptInput } from '../../services/appl
 
 import { useToast } from '../Toast';
 import type { Application } from '../../types/api';
+import { CodeProofCheck } from '../codeCheck/CodeProofCheck';
+import { isCodingAssessment } from '../../utils/codingAssessmentDetector';
 
 interface CandidateAssessmentModalProps {
   applicationId: string;
@@ -474,6 +476,23 @@ export const CandidateAssessmentModal: React.FC<CandidateAssessmentModalProps> =
                   {assessmentData?.practicalTask}
                 </p>
               </div>
+
+              {/* CODE PROOF CHECK - Dynamically rendered ONLY when assessment involves coding */}
+              {isCodingAssessment({
+                profession: assessmentData?.profession,
+                careerDomain: assessmentData?.careerDomain,
+                toolsAllowed: assessmentData?.toolsAllowed,
+                deliverables: assessmentData?.deliverables,
+                title: assessmentData?.title,
+                practicalTask: assessmentData?.practicalTask,
+                scenario: assessmentData?.scenario,
+              }) && (
+                <CodeProofCheck
+                  assessmentId={assessmentData?._id}
+                  jobId={assessmentData?.jobId}
+                  compact={false}
+                />
+              )}
 
               {/* Deliverable Work URL */}
               <div>

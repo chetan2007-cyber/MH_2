@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { Plus, Dna, FileText, Sparkles, CheckCircle2, ChevronRight, AlertCircle, RefreshCw, Layers } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Dna, FileText, Sparkles, CheckCircle2, ChevronRight, AlertCircle, RefreshCw, Layers, MoreVertical, Archive, Trash2, RotateCcw } from 'lucide-react';
 import { useJobs } from '../../hooks/useJobs';
 import { jobService, type CreateJobInput } from '../../services/job.service';
 import { useToast } from '../Toast';
 import { JobDNAModal } from './JobDNAModal';
 import { AssessmentGeneratorModal } from './AssessmentGeneratorModal';
+import { SafeDeleteModal } from '../common/SafeDeleteModal';
 import type { Job } from '../../types/api';
 
 export const JobRequisitionsView: React.FC = () => {
@@ -15,6 +16,20 @@ export const JobRequisitionsView: React.FC = () => {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [dnaJob, setDnaJob] = useState<Job | null>(null);
   const [assessmentJob, setAssessmentJob] = useState<Job | null>(null);
+  const [deleteModalJob, setDeleteModalJob] = useState<Job | null>(null);
+  const [activeMenuJobId, setActiveMenuJobId] = useState<string | null>(null);
+  const [tabFilter, setTabFilter] = useState<'active' | 'archived'>('active');
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setActiveMenuJobId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Form state
   const [formData, setFormData] = useState<CreateJobInput>({
@@ -132,142 +147,381 @@ export const JobRequisitionsView: React.FC = () => {
         </div>
       )}
 
-      {/* Requisitions List */}
-      {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {[1, 2, 3].map(i => (
-            <div key={i} style={{ height: 100, background: 'var(--bg-surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', opacity: 0.6 }} />
-          ))}
-        </div>
-      ) : jobs.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '3rem', background: 'var(--bg-surface)', borderRadius: 14, border: '1px solid var(--border-subtle)' }}>
-          <Layers size={32} color="var(--text-muted)" style={{ margin: '0 auto 12px' }} />
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 4px' }}>
-            No Active Job Requisitions
-          </h3>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: '0 0 16px' }}>
-            Create your first job requisition to synthesize Job DNA and generate verifiable practical assessments.
-          </p>
-          <button
-            onClick={() => setCreateModalOpen(true)}
-            style={{
-              padding: '9px 18px',
-              borderRadius: 8,
-              background: 'var(--accent-primary)',
-              color: '#fff',
-              border: 'none',
-              fontSize: '0.875rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
-            Create Job Requisition
-          </button>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {jobs.map(job => {
-            const hasDNA = !!job.jobDNA;
-            const isOpen = job.status === 'OPEN';
+      {/* Requisitions Tabs: Active vs Archived */}
+      {(() => {
+        const activeJobs = jobs.filter(j => j.status !== 'ARCHIVED');
+        const archivedJobs = jobs.filter(j => j.status === 'ARCHIVED');
+        const displayedJobs = tabFilter === 'active' ? activeJobs : archivedJobs;
 
-            return (
-              <div
-                key={job._id}
+        return (
+          <>
+            <div style={{ display: 'flex', gap: 10, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12 }}>
+              <button
+                onClick={() => setTabFilter('active')}
                 style={{
-                  background: 'var(--bg-surface)',
-                  borderRadius: 14,
-                  border: '1px solid var(--border-subtle)',
-                  padding: '1.5rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 16,
-                  boxShadow: 'var(--shadow-xs)',
+                  padding: '6px 14px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: tabFilter === 'active' ? 'var(--accent-primary)' : 'var(--bg-subtle)',
+                  color: tabFilter === 'active' ? '#fff' : 'var(--text-secondary)',
+                  fontSize: '0.8125rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
                 }}
               >
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <span
+                Active Requisitions ({activeJobs.length})
+              </button>
+              <button
+                onClick={() => setTabFilter('archived')}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: tabFilter === 'archived' ? 'var(--accent-primary)' : 'var(--bg-subtle)',
+                  color: tabFilter === 'archived' ? '#fff' : 'var(--text-secondary)',
+                  fontSize: '0.8125rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Archive size={13} />
+                <span>Archived Requisitions ({archivedJobs.length})</span>
+              </button>
+            </div>
+
+            {/* Requisitions List */}
+            {loading ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {[1, 2, 3].map(i => (
+                  <div key={i} style={{ height: 100, background: 'var(--bg-surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', opacity: 0.6 }} />
+                ))}
+              </div>
+            ) : displayedJobs.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem', background: 'var(--bg-surface)', borderRadius: 14, border: '1px solid var(--border-subtle)' }}>
+                {tabFilter === 'archived' ? (
+                  <>
+                    <Archive size={32} color="var(--text-muted)" style={{ margin: '0 auto 12px' }} />
+                    <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 4px' }}>
+                      No Archived Requisitions
+                    </h3>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: '0' }}>
+                      Requisitions that are completed or paused can be safely archived to preserve candidate evidence.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Layers size={32} color="var(--text-muted)" style={{ margin: '0 auto 12px' }} />
+                    <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 4px' }}>
+                      No Active Job Requisitions
+                    </h3>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: '0 0 16px' }}>
+                      Create your first job requisition to synthesize Job DNA and generate verifiable practical assessments.
+                    </p>
+                    <button
+                      onClick={() => setCreateModalOpen(true)}
                       style={{
-                        fontSize: '0.6875rem',
-                        fontWeight: 800,
-                        textTransform: 'uppercase',
-                        padding: '2px 8px',
-                        borderRadius: 4,
-                        background: isOpen ? '#05966914' : 'var(--bg-subtle)',
-                        color: isOpen ? '#059669' : 'var(--text-muted)',
+                        padding: '9px 18px',
+                        borderRadius: 8,
+                        background: 'var(--accent-primary)',
+                        color: '#fff',
+                        border: 'none',
+                        fontSize: '0.875rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
                       }}
                     >
-                      {job.status}
-                    </span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      {job.department} · {job.careerDomain}
-                    </span>
-                  </div>
-
-                  <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>
-                    {job.title}
-                  </h3>
-
-                  <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', margin: '0 0 10px', maxWidth: 640, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {job.description}
-                  </p>
-
-                  <div style={{ display: 'flex', gap: 16, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    <span><strong>Experience:</strong> {job.experience}</span>
-                    <span><strong>Difficulty:</strong> {job.difficulty}</span>
-                    <span><strong>Applicants:</strong> {job.applicantCount || 0}</span>
-                    <span><strong>Shortlisted:</strong> {job.shortlistedCount || 0}</span>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                  <button
-                    onClick={() => setDnaJob(job)}
-                    style={{
-                      padding: '8px 14px',
-                      borderRadius: 8,
-                      border: `1px solid ${hasDNA ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
-                      background: hasDNA ? 'var(--accent-primary)10' : 'var(--bg-subtle)',
-                      color: hasDNA ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                      fontSize: '0.8125rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    <Dna size={14} />
-                    <span>{hasDNA ? 'Job DNA Ready' : 'Synthesize DNA'}</span>
-                  </button>
-
-                  <button
-                    onClick={() => setAssessmentJob(job)}
-                    style={{
-                      padding: '8px 14px',
-                      borderRadius: 8,
-                      border: '1px solid var(--border-subtle)',
-                      background: 'var(--bg-subtle)',
-                      color: 'var(--text-main)',
-                      fontSize: '0.8125rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    <FileText size={14} />
-                    <span>Assessments ({job.publishedAssessmentId ? 'Published' : 'Draft'})</span>
-                  </button>
-                </div>
+                      Create Job Requisition
+                    </button>
+                  </>
+                )}
               </div>
-            );
-          })}
-        </div>
-      )}
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {displayedJobs.map(job => {
+                  const hasDNA = !!job.jobDNA;
+                  const isOpen = job.status === 'OPEN';
+                  const isArchived = job.status === 'ARCHIVED';
+
+                  return (
+                    <div
+                      key={job._id}
+                      style={{
+                        background: 'var(--bg-surface)',
+                        borderRadius: 14,
+                        border: isArchived ? '1px dashed var(--border-medium)' : '1px solid var(--border-subtle)',
+                        padding: '1.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 16,
+                        boxShadow: 'var(--shadow-xs)',
+                        opacity: isArchived ? 0.85 : 1,
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                          <span
+                            style={{
+                              fontSize: '0.6875rem',
+                              fontWeight: 800,
+                              textTransform: 'uppercase',
+                              padding: '2px 8px',
+                              borderRadius: 4,
+                              background: isOpen ? '#05966914' : isArchived ? '#d9770614' : 'var(--bg-subtle)',
+                              color: isOpen ? '#059669' : isArchived ? '#d97706' : 'var(--text-muted)',
+                            }}
+                          >
+                            {job.status}
+                          </span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            {job.department} · {job.careerDomain}
+                          </span>
+                        </div>
+
+                        <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>
+                          {job.title}
+                        </h3>
+
+                        <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', margin: '0 0 10px', maxWidth: 640, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {job.description}
+                        </p>
+
+                        <div style={{ display: 'flex', gap: 16, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          <span><strong>Experience:</strong> {job.experience}</span>
+                          <span><strong>Difficulty:</strong> {job.difficulty}</span>
+                          <span><strong>Applicants:</strong> {job.applicantCount || 0}</span>
+                          <span><strong>Shortlisted:</strong> {job.shortlistedCount || 0}</span>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                        <button
+                          onClick={() => setDnaJob(job)}
+                          style={{
+                            padding: '8px 14px',
+                            borderRadius: 8,
+                            border: `1px solid ${hasDNA ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
+                            background: hasDNA ? 'var(--accent-primary)10' : 'var(--bg-subtle)',
+                            color: hasDNA ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                            fontSize: '0.8125rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                          }}
+                        >
+                          <Dna size={14} />
+                          <span>{hasDNA ? 'Job DNA Ready' : 'Synthesize DNA'}</span>
+                        </button>
+
+                        <button
+                          onClick={() => setAssessmentJob(job)}
+                          style={{
+                            padding: '8px 14px',
+                            borderRadius: 8,
+                            border: '1px solid var(--border-subtle)',
+                            background: 'var(--bg-subtle)',
+                            color: 'var(--text-main)',
+                            fontSize: '0.8125rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                          }}
+                        >
+                          <FileText size={14} />
+                          <span>Assessments ({job.publishedAssessmentId ? 'Published' : 'Draft'})</span>
+                        </button>
+
+                        {/* Overflow Actions Menu */}
+                        <div style={{ position: 'relative' }}>
+                          <button
+                            onClick={() => setActiveMenuJobId(activeMenuJobId === job._id ? null : job._id)}
+                            style={{
+                              padding: '8px 10px',
+                              borderRadius: 8,
+                              border: '1px solid var(--border-subtle)',
+                              background: 'var(--bg-subtle)',
+                              color: 'var(--text-secondary)',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                            title="More actions"
+                          >
+                            <MoreVertical size={15} />
+                          </button>
+
+                          {activeMenuJobId === job._id && (
+                            <div
+                              ref={menuRef}
+                              style={{
+                                position: 'absolute',
+                                top: '110%',
+                                right: 0,
+                                background: 'var(--bg-surface)',
+                                border: '1px solid var(--border-subtle)',
+                                borderRadius: 10,
+                                boxShadow: 'var(--shadow-lg)',
+                                padding: '6px',
+                                minWidth: 175,
+                                zIndex: 50,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 2,
+                              }}
+                            >
+                              <button
+                                onClick={() => {
+                                  setActiveMenuJobId(null);
+                                  setDnaJob(job);
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  padding: '8px 10px',
+                                  border: 'none',
+                                  background: 'transparent',
+                                  color: 'var(--text-main)',
+                                  fontSize: '0.8125rem',
+                                  fontWeight: 600,
+                                  borderRadius: 6,
+                                  cursor: 'pointer',
+                                  textAlign: 'left',
+                                  width: '100%',
+                                }}
+                              >
+                                <Dna size={14} color="var(--accent-primary)" />
+                                <span>View Job DNA</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setActiveMenuJobId(null);
+                                  setAssessmentJob(job);
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  padding: '8px 10px',
+                                  border: 'none',
+                                  background: 'transparent',
+                                  color: 'var(--text-main)',
+                                  fontSize: '0.8125rem',
+                                  fontWeight: 600,
+                                  borderRadius: 6,
+                                  cursor: 'pointer',
+                                  textAlign: 'left',
+                                  width: '100%',
+                                }}
+                              >
+                                <FileText size={14} color="var(--accent-primary)" />
+                                <span>Assessments</span>
+                              </button>
+
+                              <div style={{ height: 1, background: 'var(--border-subtle)', margin: '4px 0' }} />
+
+                              {isArchived ? (
+                                <button
+                                  onClick={() => {
+                                    setActiveMenuJobId(null);
+                                    setDeleteModalJob(job);
+                                  }}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    padding: '8px 10px',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    color: 'var(--accent-primary)',
+                                    fontSize: '0.8125rem',
+                                    fontWeight: 700,
+                                    borderRadius: 6,
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    width: '100%',
+                                  }}
+                                >
+                                  <RotateCcw size={14} />
+                                  <span>Restore Requisition</span>
+                                </button>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      setActiveMenuJobId(null);
+                                      setDeleteModalJob(job);
+                                    }}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 8,
+                                      padding: '8px 10px',
+                                      border: 'none',
+                                      background: 'transparent',
+                                      color: '#d97706',
+                                      fontSize: '0.8125rem',
+                                      fontWeight: 600,
+                                      borderRadius: 6,
+                                      cursor: 'pointer',
+                                      textAlign: 'left',
+                                      width: '100%',
+                                    }}
+                                  >
+                                    <Archive size={14} />
+                                    <span>Archive Job</span>
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      setActiveMenuJobId(null);
+                                      setDeleteModalJob(job);
+                                    }}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 8,
+                                      padding: '8px 10px',
+                                      border: 'none',
+                                      background: 'transparent',
+                                      color: '#dc2626',
+                                      fontSize: '0.8125rem',
+                                      fontWeight: 600,
+                                      borderRadius: 6,
+                                      cursor: 'pointer',
+                                      textAlign: 'left',
+                                      width: '100%',
+                                    }}
+                                  >
+                                    <Trash2 size={14} />
+                                    <span>Delete Draft</span>
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       {/* Create Job Modal */}
       {createModalOpen && (
@@ -414,6 +668,27 @@ export const JobRequisitionsView: React.FC = () => {
           isOpen={!!assessmentJob}
           onClose={() => setAssessmentJob(null)}
           onPublished={() => {
+            refetch();
+          }}
+        />
+      )}
+
+      {deleteModalJob && (
+        <SafeDeleteModal
+          isOpen={!!deleteModalJob}
+          onClose={() => setDeleteModalJob(null)}
+          entityType="job"
+          entityId={deleteModalJob._id}
+          entityTitle={deleteModalJob.title}
+          initialStatus={deleteModalJob.status}
+          onSuccess={action => {
+            if (action === 'DELETED') {
+              showToast('success', 'Job Deleted', 'Draft job requisition permanently removed.');
+            } else if (action === 'ARCHIVED') {
+              showToast('success', 'Job Archived', 'Job requisition archived safely. Candidate evidence preserved.');
+            } else {
+              showToast('success', 'Job Restored', 'Requisition successfully restored to active state.');
+            }
             refetch();
           }}
         />

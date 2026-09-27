@@ -26,11 +26,11 @@ const reviewSchema = new mongoose.Schema(
       type: Number,
       min: 0,
       max: 100,
-      required: true,
+      default: 0,
     },
     qualitativeSynthesis: {
       type: String,
-      required: true,
+      default: '',
     },
     improvementRecommendations: [
       {
@@ -47,6 +47,18 @@ const reviewSchema = new mongoose.Schema(
       type: Number,
       default: 1.0,
     },
+    status: {
+      type: String,
+      enum: ['DRAFT', 'COMPLETED', 'WITHDRAWN'],
+      default: 'COMPLETED',
+      index: true,
+    },
+    withdrawnAt: Date,
+    withdrawnBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    withdrawalReason: String,
   },
   { timestamps: true }
 );

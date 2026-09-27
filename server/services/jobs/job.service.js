@@ -1,6 +1,9 @@
 const Job = require('../../models/Job');
 const Organization = require('../../models/Organization');
 const AuditLog = require('../../models/AuditLog');
+const Application = require('../../models/Application');
+const Assessment = require('../../models/Assessment');
+const AssessmentAssignment = require('../../models/AssessmentAssignment');
 
 class JobService {
   async createJob(data, user) {
@@ -185,23 +188,265 @@ class JobService {
     return job;
   }
 
-  async updateStatus(jobId, status, user) {
-    const job = await Job.findById(jobId);
-    if (!job) throw new Error('Job not found');
+  /**
+   * Helper to verify recruiter/admin authorization and organization isolation
+   */
+  verifyJobAuthorization(job, user) {
+    if (!user) {
+      const err = new Error('Authentication required');
+      err.status = 401;
+      throw err;
+    }
+    if (user.role === 'ADMIN') return true;
 
-    job.status = status;
+    if (user.role !== 'RECRUITER') {
+      const err = new Error('Forbidden: Only recruiters or administrators can manage job requisitions.');
+      err.status = 403;
+      throw err;
+    }
+
+    // Organization & creator isolation
+    const matchesOrg = user.organizationId && job.organizationId && user.organizationId.toString() === job.organizationId.toString();
+    const matchesCreator = job.createdBy && job.createdBy.toString() === user._id.toString();
+
+    if (!matchesOrg && !matchesCreator) {
+      const err = new Error('Forbidden: You do not have permission to manage this job requisition across organizations.');
+      err.status = 403;
+      throw err;
+    }
+    return true;
+  }
+
+  /**
+   * Calculates comprehensive dependency graph for a job before delete/archive
+   */
+  async getJobDependencies(jobId, user) {
+    const job = await Job.findById(jobId).populate('organizationId', 'name slug');
+    if (!job) {
+      const err = new Error('Job requisition not found');
+      err.status = 404;
+      throw err;
+    }
+
+    this.verifyJobAuthorization(job, user);
+
+    const [
+      applicationCount,
+      attemptsCount,
+      assessmentCount,
+      publishedAssessmentCount,
+      shortlistedCount,
+      interviewCount,
+    ] = await Promise.all([
+      Application.countDocuments({ jobId }),
+      Application.countDocuments({
+        jobId,
+        $or: [
+          { 'assessmentAttempt.submittedAt': { $exists: true, $ne: null } },
+          { status: { $in: ['ASSESSMENT_SUBMITTED', 'UNDER_HUMAN_REVIEW', 'VERIFIED', 'SHORTLISTED', 'SELECTED'] } }
+        ]
+      }),
+      Assessment.countDocuments({ jobId }),
+      Assessment.countDocuments({ jobId, status: 'PUBLISHED' }),
+      Application.countDocuments({ jobId, status: 'SHORTLISTED' }),
+      Application.countDocuments({ jobId, status: { $in: ['INTERVIEW_SCHEDULED', 'SELECTED'] } }),
+    ]);
+
+    const isDraft = job.status === 'DRAFT' || job.status === 'DNA_GENERATED';
+    const canHardDelete = isDraft && applicationCount === 0 && attemptsCount === 0 && publishedAssessmentCount === 0;
+    const canArchive = job.status !== 'ARCHIVED';
+
+    const blockingReasons = [];
+    if (!isDraft) {
+      blockingReasons.push(`Job requisition is currently ${job.status}, not in DRAFT state.`);
+    }
+    if (applicationCount > 0) {
+      blockingReasons.push(`${applicationCount} candidate application(s) are attached to this job.`);
+    }
+    if (attemptsCount > 0) {
+      blockingReasons.push(`${attemptsCount} candidate assessment deliverable(s) have been submitted.`);
+    }
+    if (publishedAssessmentCount > 0) {
+      blockingReasons.push('A published assessment version is live in the candidate catalog.');
+    }
+    if (interviewCount > 0) {
+      blockingReasons.push(`${interviewCount} interview or hiring decision(s) are recorded.`);
+    }
+
+    const recommendedAction = canHardDelete ? 'DELETE' : canArchive ? 'ARCHIVE' : 'NONE';
+
+    return {
+      jobId: job._id,
+      title: job.title,
+      status: job.status,
+      careerDomain: job.careerDomain,
+      department: job.department,
+      canHardDelete,
+      canArchive,
+      recommendedAction,
+      dependencies: {
+        applicationCount,
+        attemptsCount,
+        assessmentCount,
+        publishedAssessmentCount,
+        shortlistedCount,
+        interviewCount,
+      },
+      blockingReasons,
+    };
+  }
+
+  /**
+   * Permanently deletes a DRAFT job if and only if no candidate or workflow dependencies exist
+   */
+  async deleteJob(jobId, user) {
+    const job = await Job.findById(jobId);
+    if (!job) {
+      const err = new Error('Job requisition not found');
+      err.status = 404;
+      throw err;
+    }
+
+    this.verifyJobAuthorization(job, user);
+
+    const deps = await this.getJobDependencies(jobId, user);
+    if (!deps.canHardDelete) {
+      const err = new Error(
+        `Cannot permanently delete job requisition: ${deps.blockingReasons.join(' ')} Please archive the job instead to preserve candidate history.`
+      );
+      err.status = 400;
+      err.dependencies = deps.dependencies;
+      err.blockingReasons = deps.blockingReasons;
+      throw err;
+    }
+
+    // Safely remove unreferenced draft assessments
+    await Assessment.deleteMany({ jobId, status: 'DRAFT' });
+
+    // Permanently remove the draft job document
+    await Job.findByIdAndDelete(jobId);
+
+    await AuditLog.create({
+      actorId: user._id,
+      actorEmail: user.email,
+      actorRole: user.role,
+      action: 'JOB_DELETED',
+      resourceType: 'Job',
+      resourceId: jobId.toString(),
+      metadata: {
+        title: job.title,
+        department: job.department,
+        careerDomain: job.careerDomain,
+        status: job.status,
+      },
+      timestamp: new Date(),
+    });
+
+    return {
+      success: true,
+      message: `Draft job requisition "${job.title}" was permanently deleted.`,
+      deletedId: jobId,
+    };
+  }
+
+  /**
+   * Archives a live or historical job. Stops new applications while preserving 100% of candidate history.
+   */
+  async archiveJob(jobId, user, reason) {
+    const job = await Job.findById(jobId);
+    if (!job) {
+      const err = new Error('Job requisition not found');
+      err.status = 404;
+      throw err;
+    }
+
+    this.verifyJobAuthorization(job, user);
+
+    if (job.status === 'ARCHIVED') {
+      const err = new Error('Job requisition is already archived.');
+      err.status = 400;
+      throw err;
+    }
+
+    const previousStatus = job.status;
+    job.status = 'ARCHIVED';
+    job.archivedAt = new Date();
+    job.archivedBy = user._id;
+    job.archiveReason = reason || 'Archived by recruiter to close requisition while preserving candidate records.';
+    await job.save();
+
+    // Also transition any active draft assessments to ARCHIVED
+    await Assessment.updateMany(
+      { jobId, status: 'DRAFT' },
+      { status: 'ARCHIVED', archivedAt: new Date(), archivedBy: user._id, archiveReason: 'Parent job archived' }
+    );
+
+    const appCount = await Application.countDocuments({ jobId });
+
+    await AuditLog.create({
+      actorId: user._id,
+      actorEmail: user.email,
+      actorRole: user.role,
+      action: 'JOB_ARCHIVED',
+      resourceType: 'Job',
+      resourceId: jobId.toString(),
+      metadata: {
+        title: job.title,
+        previousStatus,
+        reason: job.archiveReason,
+        preservedApplicationsCount: appCount,
+      },
+      timestamp: new Date(),
+    });
+
+    return {
+      success: true,
+      message: `Job requisition "${job.title}" has been archived. Candidate applications and assessments remain intact.`,
+      data: job,
+    };
+  }
+
+  /**
+   * Restores an archived job back to active status
+   */
+  async restoreJob(jobId, user) {
+    const job = await Job.findById(jobId);
+    if (!job) {
+      const err = new Error('Job requisition not found');
+      err.status = 404;
+      throw err;
+    }
+
+    this.verifyJobAuthorization(job, user);
+
+    if (job.status !== 'ARCHIVED') {
+      const err = new Error('Job requisition is not archived.');
+      err.status = 400;
+      throw err;
+    }
+
+    job.status = job.publishedAssessmentId ? 'OPEN' : 'DNA_GENERATED';
+    job.archivedAt = null;
+    job.archivedBy = null;
+    job.archiveReason = null;
     await job.save();
 
     await AuditLog.create({
-      actorId: user?._id || job._id,
-      actorEmail: user?.email || 'recruiter@proofline.dev',
-      actorRole: user?.role || 'RECRUITER',
-      action: `JOB_STATUS_${status}`,
+      actorId: user._id,
+      actorEmail: user.email,
+      actorRole: user.role,
+      action: 'JOB_RESTORED',
       resourceType: 'Job',
-      resourceId: job._id.toString(),
+      resourceId: jobId.toString(),
+      metadata: { title: job.title, newStatus: job.status },
+      timestamp: new Date(),
     });
 
-    return job;
+    return {
+      success: true,
+      message: `Job requisition "${job.title}" has been restored to ${job.status}.`,
+      data: job,
+    };
   }
 }
 

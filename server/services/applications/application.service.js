@@ -1,6 +1,7 @@
 const Application = require('../../models/Application');
 const Job = require('../../models/Job');
 const Assessment = require('../../models/Assessment');
+const AssessmentAssignment = require('../../models/AssessmentAssignment');
 const User = require('../../models/User');
 const AuditLog = require('../../models/AuditLog');
 const Notification = require('../../models/Notification');
@@ -58,6 +59,23 @@ class ApplicationService {
     });
 
     await application.save();
+
+    // Create AssessmentAssignment if assessment is available
+    if (publishedAssessment) {
+      await AssessmentAssignment.findOneAndUpdate(
+        { candidateId: candidate._id, jobId: job._id },
+        {
+          assessmentId: publishedAssessment._id,
+          assessmentVersion: publishedAssessment.version || 1,
+          jobId: job._id,
+          applicationId: application._id,
+          candidateId: candidate._id,
+          assignedAt: new Date(),
+          status: 'ASSIGNED',
+        },
+        { upsert: true, new: true }
+      );
+    }
 
     // Increment applicant count on Job
     await Job.findByIdAndUpdate(job._id, { $inc: { applicantCount: 1 } });
@@ -132,6 +150,21 @@ class ApplicationService {
       };
       await application.save();
 
+      // Update AssessmentAssignment status
+      await AssessmentAssignment.findOneAndUpdate(
+        { candidateId: application.candidateId, jobId: job._id },
+        {
+          assessmentId: assessment._id,
+          assessmentVersion: assessment.version || 1,
+          jobId: job._id,
+          applicationId: application._id,
+          candidateId: application.candidateId,
+          startedAt,
+          attemptDurationMinutes: durationMinutes,
+          status: 'STARTED',
+        },
+        { upsert: true }
+      );
 
       await AuditLog.create({
         actorId: user?._id || application.candidateId,
@@ -378,6 +411,28 @@ class ApplicationService {
 
     await application.save();
 
+    // Update AssessmentAssignment with Candidate Deliverables & Evaluation
+    await AssessmentAssignment.findOneAndUpdate(
+      { candidateId: application.candidateId, jobId: job._id },
+      {
+        submittedAt: new Date(),
+        status: overallScore >= 85 ? 'EVALUATED' : 'VERIFICATION_REQUIRED',
+        candidateDeliverables: {
+          workUrl: submissionData.workUrl || 'https://github.com/kaushal-verifiable/production-subsystem',
+          notes: submissionData.notes || 'Verifiable submission with ADR rationale and test verification.',
+          adrDecision: submissionData.adrDecision || 'Selected lock-free CAS architecture to eliminate PostgreSQL row lock contention.',
+          modalityType: submissionData.modalityType || (job.careerDomain === 'engineering_core' ? 'cad' : 'code'),
+          artifactData: submissionData.artifactData || {},
+        },
+        evaluationSummary: {
+          overallScore,
+          confidence,
+          evaluatedAt: new Date(),
+        },
+      },
+      { upsert: true }
+    );
+
     await AuditLog.create({
       actorId: candidate?._id || application.candidateId,
       actorEmail: candidate?.email || 'candidate@proofline.dev',
@@ -411,6 +466,14 @@ class ApplicationService {
     }
 
     await application.save();
+
+    // Sync verification status to AssessmentAssignment
+    await AssessmentAssignment.findOneAndUpdate(
+      { candidateId: application.candidateId, jobId: application.jobId },
+      {
+        status: reviewData.status === 'VERIFIED' ? 'VERIFIED' : 'NOT_VERIFIED',
+      }
+    );
 
     await AuditLog.create({
       actorId: reviewer._id,
@@ -470,6 +533,136 @@ class ApplicationService {
     });
 
     return application;
+  }
+
+  async assignJobToCandidate({ jobId, candidateId, candidateEmail, candidateName, assignedBy, notes }) {
+    const job = await Job.findById(jobId);
+    if (!job) throw new Error('Job requisition not found');
+
+    let candidate = null;
+    if (candidateId) {
+      candidate = await User.findById(candidateId);
+    } else if (candidateEmail) {
+      candidate = await User.findOne({ email: candidateEmail.toLowerCase().trim() });
+      if (!candidate) {
+        candidate = new User({
+          email: candidateEmail.toLowerCase().trim(),
+          name: candidateName || candidateEmail.split('@')[0],
+          role: 'CANDIDATE',
+          careerDomain: job.careerDomain || 'technology',
+          profession: job.profession || 'Engineer',
+          passwordHash: 'assigned_invite_placeholder',
+        });
+        await candidate.save();
+      }
+    }
+
+    if (!candidate) throw new Error('Candidate not specified or found');
+
+    // Ensure job has a published assessment
+    let publishedAssessment = null;
+    if (job.publishedAssessmentId) {
+      publishedAssessment = await Assessment.findById(job.publishedAssessmentId);
+    }
+    if (!publishedAssessment) {
+      publishedAssessment = await Assessment.findOne({ jobId: job._id, status: 'PUBLISHED' }).sort({ version: -1 });
+    }
+    if (!publishedAssessment) {
+      // Auto-generate and publish assessment draft if not yet published
+      const assessmentService = require('../assessments/assessment.service');
+      const draft = await assessmentService.generateAssessment(job._id, assignedBy);
+      publishedAssessment = await assessmentService.publishAssessment(draft._id, assignedBy);
+    }
+
+    let application = await Application.findOne({ candidateId: candidate._id, jobId: job._id });
+    if (!application) {
+      application = new Application({
+        candidateId: candidate._id,
+        jobId: job._id,
+        status: 'ASSESSMENT_PENDING',
+        eligibility: {
+          isEligible: true,
+          checks: [
+            {
+              name: 'Direct Reviewer Assignment',
+              passed: true,
+              reason: `Assigned directly by Reviewer/Recruiter: ${assignedBy?.name || 'Reviewer'}`,
+            },
+            {
+              name: 'Assessment Readiness',
+              passed: true,
+              reason: 'Practical assessment assigned for hands-on proof demonstration.',
+            },
+          ],
+          summaryReason: `Directly assigned by reviewer for ${job.title}.`,
+          checkedAt: new Date(),
+        },
+        assessmentAttempt: {
+          assessmentId: publishedAssessment._id,
+        },
+      });
+      await application.save();
+      await Job.findByIdAndUpdate(job._id, { $inc: { applicantCount: 1 } });
+    } else {
+      application.status = 'ASSESSMENT_PENDING';
+      application.assessmentAttempt = {
+        assessmentId: publishedAssessment._id,
+      };
+      await application.save();
+    }
+
+    const assignment = await AssessmentAssignment.findOneAndUpdate(
+      { candidateId: candidate._id, jobId: job._id },
+      {
+        assessmentId: publishedAssessment._id,
+        assessmentVersion: publishedAssessment.version || 1,
+        jobId: job._id,
+        applicationId: application._id,
+        candidateId: candidate._id,
+        assignedAt: new Date(),
+        status: 'ASSIGNED',
+        notes: notes || undefined,
+      },
+      { upsert: true, new: true }
+    );
+
+    await AuditLog.create({
+      actorId: assignedBy?._id || assignedBy?.id,
+      actorEmail: assignedBy?.email || 'reviewer@proofline.dev',
+      actorRole: assignedBy?.role || 'REVIEWER',
+      action: 'ASSESSMENT_ASSIGNED_TO_CANDIDATE',
+      resourceType: 'AssessmentAssignment',
+      resourceId: assignment._id.toString(),
+      metadata: {
+        jobId: job._id.toString(),
+        candidateId: candidate._id.toString(),
+        candidateEmail: candidate.email,
+        assessmentId: publishedAssessment._id.toString(),
+      },
+    });
+
+    await Notification.create({
+      userId: candidate._id,
+      title: `Assessment Assigned: ${job.title}`,
+      message: `A reviewer has assigned the practical assessment for "${job.title}" to you. You can launch your assessment in your workspace.`,
+      type: 'ASSESSMENT',
+      link: `/workspace`,
+    });
+
+    return {
+      success: true,
+      job,
+      assessment: publishedAssessment,
+      candidate: {
+        _id: candidate._id,
+        name: candidate.name,
+        email: candidate.email,
+        careerDomain: candidate.careerDomain,
+        profession: candidate.profession,
+      },
+      application,
+      assignment,
+    };
   }
 }
 

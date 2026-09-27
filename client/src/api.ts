@@ -46,7 +46,7 @@ export const api = {
   saveArchitecture: (id: string, payload: any) => submissionService.updateSubmission(id, { metrics: payload }),
   saveADR: (id: string, adr: any) => apiClient.post<any>(`/submissions/${id}/adrs`, adr),
   triggerVerification: (id: string) => submissionService.runWorkspaceTests(id),
-  submitDefense: (id: string, transcript: any) => apiClient.post<any>(`/submissions/${id}/defense`, transcript),
+  submitDefense: (id: string, transcript: any) => apiClient.post<any>(`/submissions/${id}/defense`, { answers: Array.isArray(transcript) ? transcript : [transcript] }),
   finalizeSubmission: (id: string, payload?: any) => submissionService.submitForReview(id, payload || { deliverables: [] }),
 
   // Opportunities & Trust Aliases

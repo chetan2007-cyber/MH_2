@@ -48,7 +48,11 @@ class DefenseService {
     defenseRound.evaluatedAt = new Date();
     await defenseRound.save();
 
-    await Submission.findByIdAndUpdate(submissionId, { status: 'UNDER_REVIEW' });
+    const sub = await Submission.findByIdAndUpdate(submissionId, { status: 'UNDER_REVIEW' });
+    if (!sub) {
+      const Application = require('../../models/Application');
+      await Application.findByIdAndUpdate(submissionId, { status: 'UNDER_HUMAN_REVIEW' });
+    }
     return defenseRound;
   }
 }

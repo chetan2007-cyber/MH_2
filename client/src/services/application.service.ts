@@ -78,5 +78,18 @@ export const applicationService = {
     if (!res.data) throw new Error(res.error || 'Failed to save final decision');
     return res.data;
   },
+
+  async assignToCandidate(input: {
+    jobId: string;
+    candidateId?: string;
+    candidateEmail?: string;
+    candidateName?: string;
+    notes?: string;
+  }): Promise<{ success: boolean; data: any; message: string }> {
+    const res = await api.post<{ success: boolean; data: any; message: string }>('/applications/assign-candidate', input);
+    if (!res.data) throw new Error(res.error || 'Failed to assign assessment to candidate');
+    return res.data;
+  },
 };
+
 

@@ -50,3 +50,38 @@ exports.publishAssessment = async (req, res) => {
     res.status(400).json({ success: false, error: error.message });
   }
 };
+
+exports.getAssessmentDependencies = async (req, res) => {
+  try {
+    const deps = await assessmentService.getAssessmentDependencies(req.params.id, req.user);
+    res.json({ success: true, ...deps });
+  } catch (error) {
+    console.error('Get assessment dependencies error:', error);
+    res.status(error.status || 500).json({ success: false, error: error.message });
+  }
+};
+
+exports.deleteAssessment = async (req, res) => {
+  try {
+    const result = await assessmentService.deleteAssessment(req.params.id, req.user);
+    res.json(result);
+  } catch (error) {
+    console.error('Delete assessment error:', error);
+    res.status(error.status || 500).json({
+      success: false,
+      error: error.message,
+      dependencies: error.dependencies,
+      blockingReasons: error.blockingReasons,
+    });
+  }
+};
+
+exports.archiveAssessment = async (req, res) => {
+  try {
+    const result = await assessmentService.archiveAssessment(req.params.id, req.user, req.body.reason);
+    res.json(result);
+  } catch (error) {
+    console.error('Archive assessment error:', error);
+    res.status(error.status || 500).json({ success: false, error: error.message });
+  }
+};

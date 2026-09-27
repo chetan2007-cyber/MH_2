@@ -6,6 +6,7 @@ const { requireRole } = require('../middleware/rbac');
 
 router.get('/', optionalAuthenticate, applicationController.getAllApplications);
 router.post('/', optionalAuthenticate, applicationController.applyToJob);
+router.post('/assign-candidate', optionalAuthenticate, applicationController.assignJobToCandidate);
 router.get('/my', optionalAuthenticate, applicationController.getMyApplications);
 router.get('/job/:jobId', optionalAuthenticate, applicationController.getApplicationsByJob);
 router.get('/job/:jobId/stats', optionalAuthenticate, applicationController.getAssessmentStatsByJob);

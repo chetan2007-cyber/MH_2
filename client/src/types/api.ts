@@ -337,15 +337,50 @@ export interface Job {
   optionalSkills: string[];
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
   assessmentDurationMinutes: number;
-  status: 'DRAFT' | 'DNA_GENERATED' | 'ASSESSMENT_READY' | 'OPEN' | 'CLOSED';
+  status: 'DRAFT' | 'DNA_GENERATED' | 'ASSESSMENT_READY' | 'OPEN' | 'CLOSED' | 'ARCHIVED';
   jobDNA?: JobDNA;
   competencies?: CompetencyItem[];
   publishedAssessmentId?: any;
   applicantCount?: number;
   shortlistedCount?: number;
+  archivedAt?: string;
+  archivedBy?: string;
+  archiveReason?: string;
   createdBy?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface JobDependencyInfo {
+  jobId: string;
+  title: string;
+  status: string;
+  canHardDelete: boolean;
+  canArchive: boolean;
+  recommendedAction: 'HARD_DELETE' | 'ARCHIVE';
+  dependencies: {
+    applicationsCount: number;
+    assessmentAttemptsCount: number;
+    assessmentsCount: number;
+    publishedAssessmentsCount: number;
+    interviewsCount: number;
+  };
+  blockingReasons: string[];
+}
+
+export interface AssessmentDependencyInfo {
+  assessmentId: string;
+  title: string;
+  version: number;
+  status: string;
+  canHardDelete: boolean;
+  canArchive: boolean;
+  recommendedAction: 'HARD_DELETE' | 'ARCHIVE';
+  dependencies: {
+    attemptsCount: number;
+    jobApplicationsCount: number;
+  };
+  blockingReasons: string[];
 }
 
 export interface RubricCriterion {
@@ -377,6 +412,43 @@ export interface Assessment {
   publishedAt?: string;
   createdBy?: string;
   changeNotes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AssessmentAssignment {
+  _id: string;
+  id?: string;
+  assessmentId: any;
+  assessmentVersion: number;
+  jobId: any;
+  applicationId: any;
+  candidateId: any;
+  assignedAt: string;
+  startedAt?: string;
+  submittedAt?: string;
+  attemptDurationMinutes?: number;
+  status:
+    | 'ASSIGNED'
+    | 'STARTED'
+    | 'SUBMITTED'
+    | 'EVALUATING'
+    | 'EVALUATED'
+    | 'VERIFICATION_REQUIRED'
+    | 'VERIFIED'
+    | 'NOT_VERIFIED';
+  candidateDeliverables?: {
+    workUrl?: string;
+    adrDecision?: string;
+    notes?: string;
+    modalityType?: string;
+    artifactData?: any;
+  };
+  evaluationSummary?: {
+    overallScore?: number;
+    confidence?: string;
+    evaluatedAt?: string;
+  };
   createdAt?: string;
   updatedAt?: string;
 }

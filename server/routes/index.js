@@ -21,6 +21,7 @@ const candidateRoutes = require('./candidate.routes');
 const opportunityRoutes = require('./opportunity.routes');
 const trustRoutes = require('./trust.routes');
 const adminRoutes = require('./admin.routes');
+const codeCheckRoutes = require('./codeCheck.routes');
 const passportController = require('../controllers/passportController');
 
 // Mount modular sub-routers
@@ -44,6 +45,7 @@ router.use('/candidates', candidateRoutes);
 router.use('/opportunities', opportunityRoutes);
 router.use('/trust', trustRoutes);
 router.use('/admin', adminRoutes);
+router.use('/code-check', codeCheckRoutes);
 
 // Public Proof Verification Endpoint
 router.get('/public/proof/:token', passportController.getPublicProof);

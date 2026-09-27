@@ -10,5 +10,10 @@ router.post('/:id/analyze', optionalAuthenticate, jobController.generateJobDNA);
 router.post('/:id/generate-dna', optionalAuthenticate, jobController.generateJobDNA);
 router.patch('/:id/competencies', optionalAuthenticate, jobController.updateCompetencies);
 router.patch('/:id/status', optionalAuthenticate, jobController.updateStatus);
+router.get('/:id/dependencies', optionalAuthenticate, jobController.getJobDependencies);
+router.delete('/:id', optionalAuthenticate, jobController.deleteJob);
+router.patch('/:id/archive', optionalAuthenticate, jobController.archiveJob);
+router.post('/:id/archive', optionalAuthenticate, jobController.archiveJob);
+router.patch('/:id/restore', optionalAuthenticate, jobController.restoreJob);
 
 module.exports = router;

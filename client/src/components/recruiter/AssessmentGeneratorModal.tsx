@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   Sparkles, X, Check, Shield, FileText, CheckCircle2, Clock,
-  Layers, ArrowRight, Eye, Copy, Users, CheckCircle, Hourglass
+  Layers, ArrowRight, Eye, Copy, Users, CheckCircle, Hourglass,
+  Trash2, Archive
 } from 'lucide-react';
 import { assessmentService } from '../../services/assessment.service';
 import { applicationService } from '../../services/application.service';
 import { CandidateAssessmentModal } from '../candidate/CandidateAssessmentModal';
+import { SafeDeleteModal } from '../common/SafeDeleteModal';
 import { useToast } from '../Toast';
 import type { Job, Assessment } from '../../types/api';
 
@@ -27,6 +29,7 @@ export const AssessmentGeneratorModal: React.FC<AssessmentGeneratorModalProps> =
   const [publishing, setPublishing] = useState(false);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [activeAssessment, setActiveAssessment] = useState<Assessment | null>(null);
+  const [deleteModalAssessment, setDeleteModalAssessment] = useState<Assessment | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [stats, setStats] = useState({
     totalApplications: 0,
@@ -346,30 +349,79 @@ export const AssessmentGeneratorModal: React.FC<AssessmentGeneratorModalProps> =
                       </button>
 
                       {activeAssessment.status === 'PUBLISHED' ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', fontWeight: 800, color: '#059669', background: '#05966914', padding: '6px 12px', borderRadius: 8 }}>
-                          <CheckCircle2 size={14} /> Published & Live
+                        <>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', fontWeight: 800, color: '#059669', background: '#05966914', padding: '6px 12px', borderRadius: 8 }}>
+                            <CheckCircle2 size={14} /> Published & Live
+                          </span>
+                          <button
+                            onClick={() => setDeleteModalAssessment(activeAssessment)}
+                            style={{
+                              padding: '7px 12px',
+                              borderRadius: 8,
+                              border: '1px solid var(--border-subtle)',
+                              background: 'var(--bg-subtle)',
+                              color: '#d97706',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                            }}
+                            title="Retire / Archive this assessment version"
+                          >
+                            <Archive size={13} />
+                            <span>Archive Version</span>
+                          </button>
+                        </>
+                      ) : activeAssessment.status === 'ARCHIVED' ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', fontWeight: 800, color: '#d97706', background: '#d9770614', padding: '6px 12px', borderRadius: 8 }}>
+                          <Archive size={14} /> Retired / Archived Version
                         </span>
                       ) : (
-                        <button
-                          onClick={handlePublish}
-                          disabled={publishing}
-                          style={{
-                            padding: '7px 14px',
-                            borderRadius: 8,
-                            background: '#059669',
-                            color: '#fff',
-                            border: 'none',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 6,
-                          }}
-                        >
-                          <Check size={14} />
-                          {publishing ? 'Publishing...' : 'Approve & Publish'}
-                        </button>
+                        <>
+                          <button
+                            onClick={() => setDeleteModalAssessment(activeAssessment)}
+                            style={{
+                              padding: '7px 12px',
+                              borderRadius: 8,
+                              border: '1px solid #dc262625',
+                              background: '#dc26260a',
+                              color: '#dc2626',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                            }}
+                            title="Delete this unstarted draft assessment"
+                          >
+                            <Trash2 size={13} />
+                            <span>Delete Draft</span>
+                          </button>
+
+                          <button
+                            onClick={handlePublish}
+                            disabled={publishing}
+                            style={{
+                              padding: '7px 14px',
+                              borderRadius: 8,
+                              background: '#059669',
+                              color: '#fff',
+                              border: 'none',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                            }}
+                          >
+                            <Check size={14} />
+                            {publishing ? 'Publishing...' : 'Approve & Publish'}
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -520,6 +572,35 @@ export const AssessmentGeneratorModal: React.FC<AssessmentGeneratorModalProps> =
           onClose={() => setPreviewOpen(false)}
           previewMode={true}
           previewAssessment={activeAssessment}
+        />
+      )}
+
+      {/* Safe Delete & Archive Modal for Assessment */}
+      {deleteModalAssessment && (
+        <SafeDeleteModal
+          isOpen={!!deleteModalAssessment}
+          onClose={() => setDeleteModalAssessment(null)}
+          entityType="assessment"
+          entityId={deleteModalAssessment._id}
+          entityTitle={`Version ${deleteModalAssessment.version}: ${deleteModalAssessment.title}`}
+          initialStatus={deleteModalAssessment.status}
+          onSuccess={action => {
+            if (action === 'DELETED') {
+              const remaining = assessments.filter(a => a._id !== deleteModalAssessment._id);
+              setAssessments(remaining);
+              setActiveAssessment(remaining[0] || null);
+              showToast('success', 'Assessment Version Deleted', 'Draft assessment permanently removed.');
+            } else if (action === 'ARCHIVED') {
+              setAssessments(prev =>
+                prev.map(a => (a._id === deleteModalAssessment._id ? { ...a, status: 'ARCHIVED' } : a))
+              );
+              setActiveAssessment(prev =>
+                prev?._id === deleteModalAssessment._id ? { ...prev, status: 'ARCHIVED' } : prev
+              );
+              showToast('success', 'Assessment Version Archived', 'Assessment retired safely. Historical candidate attempts remain intact.');
+            }
+            loadStats();
+          }}
         />
       )}
     </>

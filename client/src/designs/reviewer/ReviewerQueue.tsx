@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import {
   Clock, ChevronRight, Shield, Cpu, CheckCircle2,
   AlertTriangle, ArrowRight, Layers, BarChart2, Filter, Sparkles, RefreshCw, AlertCircle,
-  Dna, Search, Briefcase, FileText, Check
+  Dna, Search, Briefcase, FileText, Check, Send
 } from 'lucide-react';
 import { CAREER_DOMAINS } from '../../data/careerTaxonomy';
 import { useReviewQueue } from '../../hooks/useReviewQueue';
 import { useJobs } from '../../hooks/useJobs';
 import { JobDNAInspectorModal } from './JobDNAInspectorModal';
+import { SendAssessmentModal } from '../../components/reviewer/SendAssessmentModal';
 import type { Job } from '../../types/api';
 
 export interface ReviewSubmissionItem {
@@ -48,6 +49,7 @@ export const ReviewerQueue: React.FC<ReviewerQueueProps> = ({
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedJobDNA, setSelectedJobDNA] = useState<Job | null>(null);
+  const [selectedJobForSend, setSelectedJobForSend] = useState<Job | null>(null);
 
   const handleSelect = (sub: ReviewSubmissionItem) => {
     if (onSelectSubmission) onSelectSubmission(sub);
@@ -161,13 +163,13 @@ export const ReviewerQueue: React.FC<ReviewerQueueProps> = ({
           }}
         >
           {activeTab === 'submissions'
-            ? 'Verification Submissions Queue'
-            : 'Recruiter Job DNA & Requisitions'}
+            ? 'Candidate Deliverables & Verification Queue'
+            : 'Recruiter Job DNA & Requisition Benchmarks'}
         </h1>
         <p style={{ fontSize: '0.9375rem', color: 'var(--text-secondary)', margin: 0 }}>
           {activeTab === 'submissions'
-            ? 'Evaluate anonymous candidate deliverables using standardized, profession-specific rubrics.'
-            : 'Inspect Job DNA specifications, mandatory proof criteria, and competency models uploaded by recruiters.'}
+            ? 'Evaluate anonymous candidate deliverables and proof of work against standardized role rubrics.'
+            : 'Inspect Job DNA specifications, competency models, and rubric benchmarks synthesized from recruiter job requisitions.'}
         </p>
       </div>
 
@@ -727,6 +729,29 @@ export const ReviewerQueue: React.FC<ReviewerQueueProps> = ({
                       <button
                         onClick={e => {
                           e.stopPropagation();
+                          setSelectedJobForSend(job);
+                        }}
+                        style={{
+                          padding: '9px 16px',
+                          borderRadius: 8,
+                          border: 'none',
+                          background: '#059669',
+                          color: '#fff',
+                          fontSize: '0.8125rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          boxShadow: '0 2px 6px rgba(5, 150, 105, 0.25)',
+                        }}
+                      >
+                        <Send size={13} />
+                        <span>Send to Candidate</span>
+                      </button>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
                           setSelectedJobDNA(job);
                         }}
                         style={{
@@ -795,6 +820,15 @@ export const ReviewerQueue: React.FC<ReviewerQueueProps> = ({
           job={selectedJobDNA}
           isOpen={!!selectedJobDNA}
           onClose={() => setSelectedJobDNA(null)}
+        />
+      )}
+
+      {/* ── SEND ASSESSMENT MODAL ── */}
+      {selectedJobForSend && (
+        <SendAssessmentModal
+          job={selectedJobForSend}
+          isOpen={!!selectedJobForSend}
+          onClose={() => setSelectedJobForSend(null)}
         />
       )}
     </div>

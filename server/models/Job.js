@@ -96,9 +96,20 @@ const jobSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['DRAFT', 'DNA_GENERATED', 'ASSESSMENT_READY', 'OPEN', 'CLOSED'],
+      enum: ['DRAFT', 'DNA_GENERATED', 'ASSESSMENT_READY', 'OPEN', 'CLOSED', 'ARCHIVED'],
       default: 'DRAFT',
       index: true,
+    },
+    archivedAt: Date,
+    archivedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    archiveReason: String,
+    deletedAt: Date,
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
     },
     jobDNA: jobDNASchema,
     competencies: [competencyItemSchema],

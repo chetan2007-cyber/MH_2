@@ -3,7 +3,7 @@ const { logAudit } = require('../middleware/audit');
 
 exports.getReviewQueue = async (req, res) => {
   try {
-    const queue = await reviewService.getQueue(req.user?._id);
+    const queue = await reviewService.getQueue(req.user?._id, req.query.domain);
     return res.json({ success: true, count: queue.length, data: queue, queue });
   } catch (error) {
     console.error('Get review queue error:', error);
@@ -71,5 +71,62 @@ exports.submitReview = async (req, res) => {
   } catch (error) {
     console.error('Submit review error:', error);
     return res.status(400).json({ success: false, error: error.message || 'Error submitting review.' });
+  }
+};
+
+exports.saveReviewDraft = async (req, res) => {
+  try {
+    const reviewerId = req.user?._id;
+    if (!reviewerId) return res.status(401).json({ success: false, error: 'Authentication required' });
+
+    const result = await reviewService.saveReviewDraft(req.params.submissionId, reviewerId, req.body);
+    res.json(result);
+  } catch (error) {
+    console.error('Save review draft error:', error);
+    res.status(error.status || 500).json({ success: false, error: error.message });
+  }
+};
+
+exports.getReviewDraft = async (req, res) => {
+  try {
+    const reviewerId = req.user?._id;
+    if (!reviewerId) return res.json({ success: true, draft: null });
+
+    const draft = await reviewService.getReviewDraft(req.params.submissionId, reviewerId);
+    res.json({ success: true, draft });
+  } catch (error) {
+    console.error('Get review draft error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+exports.deleteReviewDraft = async (req, res) => {
+  try {
+    const reviewerId = req.user?._id;
+    if (!reviewerId) return res.status(401).json({ success: false, error: 'Authentication required' });
+
+    const result = await reviewService.deleteReviewDraft(req.params.submissionId, reviewerId);
+    res.json(result);
+  } catch (error) {
+    console.error('Delete review draft error:', error);
+    res.status(error.status || 500).json({ success: false, error: error.message });
+  }
+};
+
+exports.withdrawReview = async (req, res) => {
+  try {
+    const reviewerId = req.user?._id;
+    if (!reviewerId) return res.status(401).json({ success: false, error: 'Authentication required' });
+
+    const result = await reviewService.withdrawReview(
+      req.params.submissionId,
+      reviewerId,
+      req.body.reason,
+      req.user
+    );
+    res.json(result);
+  } catch (error) {
+    console.error('Withdraw review error:', error);
+    res.status(error.status || 500).json({ success: false, error: error.message });
   }
 };

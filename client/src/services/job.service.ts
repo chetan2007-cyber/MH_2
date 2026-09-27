@@ -1,5 +1,5 @@
 import { api } from '../lib/api';
-import type { Job, CompetencyItem } from '../types/api';
+import type { Job, CompetencyItem, JobDependencyInfo } from '../types/api';
 
 export interface CreateJobInput {
   title: string;
@@ -59,5 +59,29 @@ export const jobService = {
     const res = await api.patch<Job>(`/jobs/${jobId}/status`, { status });
     if (!res.data) throw new Error(res.error || 'Failed to update job status');
     return res.data;
+  },
+
+  async getJobDependencies(jobId: string): Promise<JobDependencyInfo> {
+    const res = await api.get<{ success: boolean; data: JobDependencyInfo }>(`/jobs/${jobId}/dependencies`);
+    if (!res.data) throw new Error(res.error || 'Failed to fetch job dependencies');
+    return (res.data as any).data || res.data;
+  },
+
+  async deleteJob(jobId: string): Promise<{ success: boolean; message: string }> {
+    const res = await api.delete<{ success: boolean; message: string }>(`/jobs/${jobId}`);
+    if (!res.success && res.error) throw new Error(res.error);
+    return res as any;
+  },
+
+  async archiveJob(jobId: string, reason?: string): Promise<{ success: boolean; job: Job; message: string }> {
+    const res = await api.patch<{ success: boolean; job: Job; message: string }>(`/jobs/${jobId}/archive`, { reason });
+    if (!res.success && res.error) throw new Error(res.error);
+    return res as any;
+  },
+
+  async restoreJob(jobId: string): Promise<{ success: boolean; job: Job; message: string }> {
+    const res = await api.patch<{ success: boolean; job: Job; message: string }>(`/jobs/${jobId}/restore`, {});
+    if (!res.success && res.error) throw new Error(res.error);
+    return res as any;
   },
 };

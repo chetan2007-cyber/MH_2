@@ -1,5 +1,7 @@
 const Assessment = require('../../models/Assessment');
 const Job = require('../../models/Job');
+const Application = require('../../models/Application');
+const AssessmentAssignment = require('../../models/AssessmentAssignment');
 const AuditLog = require('../../models/AuditLog');
 
 class AssessmentService {
@@ -7,13 +9,15 @@ class AssessmentService {
     const job = await Job.findById(jobId);
     if (!job) throw new Error('Job not found');
 
-    const existingDraft = await Assessment.findOne({ jobId, status: 'DRAFT' });
+    const allAssessments = await Assessment.find({ jobId: job._id }).sort({ version: -1 });
+    const existingDraft = allAssessments.find(a => a.status === 'DRAFT');
     if (existingDraft) {
       return existingDraft;
     }
 
-    const latest = await Assessment.findOne({ jobId }).sort({ version: -1 });
-    const nextVersion = latest ? latest.version + 1 : 1;
+    const maxVersion = allAssessments.reduce((max, a) => Math.max(max, a.version || 0), 0);
+    const nextVersion = maxVersion + 1;
+
 
     const domain = job.careerDomain || 'technology';
     const profession = job.profession || 'Software Developer';
@@ -181,6 +185,46 @@ class AssessmentService {
       status: 'OPEN',
     }, { new: true });
 
+    // Automatically create AssessmentAssignment records for any eligible applicants
+    const Application = require('../../models/Application');
+    const AssessmentAssignment = require('../../models/AssessmentAssignment');
+    const Notification = require('../../models/Notification');
+
+    const pendingApps = await Application.find({
+      jobId: assessment.jobId,
+      status: { $in: ['APPLIED', 'ELIGIBLE', 'ASSESSMENT_PENDING'] },
+    });
+
+    for (const app of pendingApps) {
+      app.status = 'ASSESSMENT_PENDING';
+      app.assessmentAttempt = {
+        assessmentId: assessment._id,
+      };
+      await app.save();
+
+      await AssessmentAssignment.findOneAndUpdate(
+        { candidateId: app.candidateId, jobId: assessment.jobId },
+        {
+          assessmentId: assessment._id,
+          assessmentVersion: assessment.version,
+          jobId: assessment.jobId,
+          applicationId: app._id,
+          candidateId: app.candidateId,
+          assignedAt: new Date(),
+          status: 'ASSIGNED',
+        },
+        { upsert: true, new: true }
+      );
+
+      await Notification.create({
+        userId: app.candidateId,
+        title: `Assessment Live: ${assessment.title}`,
+        message: `Your practical assessment is now available in your workspace.`,
+        type: 'ASSESSMENT',
+        link: `/workspace`,
+      });
+    }
+
     // Sync to Platform Challenges pool so candidates can discover and solve it
     const Challenge = require('../../models/Challenge');
     const existingChallenge = await Challenge.findOne({ slug: `job-assessment-${assessment._id}` });
@@ -216,7 +260,6 @@ class AssessmentService {
       });
     }
 
-
     await AuditLog.create({
       actorId: user?._id || assessment.createdBy,
       actorEmail: user?.email || 'recruiter@proofline.dev',
@@ -228,6 +271,208 @@ class AssessmentService {
     });
 
     return assessment;
+  }
+
+  /**
+   * Helper to verify recruiter/admin authorization for assessment management
+   */
+  async verifyAssessmentAuthorization(assessment, user) {
+    if (!user) {
+      const err = new Error('Authentication required');
+      err.status = 401;
+      throw err;
+    }
+    if (user.role === 'ADMIN') return true;
+
+    if (user.role !== 'RECRUITER') {
+      const err = new Error('Forbidden: Only recruiters or administrators can manage assessments.');
+      err.status = 403;
+      throw err;
+    }
+
+    const job = await Job.findById(assessment.jobId);
+    const matchesOrg = user.organizationId && job?.organizationId && user.organizationId.toString() === job.organizationId.toString();
+    const matchesCreator = assessment.createdBy && assessment.createdBy.toString() === user._id.toString();
+
+    if (!matchesOrg && !matchesCreator) {
+      const err = new Error('Forbidden: You do not have permission to manage this assessment across organizations.');
+      err.status = 403;
+      throw err;
+    }
+    return true;
+  }
+
+  /**
+   * Calculates dependencies for an assessment version before delete/archive
+   */
+  async getAssessmentDependencies(assessmentId, user) {
+    const assessment = await Assessment.findById(assessmentId);
+    if (!assessment) {
+      const err = new Error('Assessment not found');
+      err.status = 404;
+      throw err;
+    }
+
+    await this.verifyAssessmentAuthorization(assessment, user);
+
+    const job = await Job.findById(assessment.jobId);
+
+    const [attemptsCount, assignmentsCount] = await Promise.all([
+      Application.countDocuments({
+        $or: [
+          { 'assessmentAttempt.assessmentId': assessment._id },
+          { jobId: assessment.jobId, 'assessmentAttempt.submittedAt': { $exists: true, $ne: null } }
+        ]
+      }),
+      AssessmentAssignment.countDocuments({ assessmentId: assessment._id }),
+    ]);
+
+    const isJobPublishedVersion = job && job.publishedAssessmentId && job.publishedAssessmentId.toString() === assessment._id.toString();
+    const canHardDelete = assessment.status === 'DRAFT' && attemptsCount === 0 && !isJobPublishedVersion;
+    const canArchive = assessment.status !== 'ARCHIVED';
+
+    const blockingReasons = [];
+    if (assessment.status !== 'DRAFT') {
+      blockingReasons.push(`Assessment version ${assessment.version} is currently ${assessment.status}, not DRAFT.`);
+    }
+    if (attemptsCount > 0) {
+      blockingReasons.push(`${attemptsCount} candidate assessment deliverable(s) or attempt(s) are attached to this version.`);
+    }
+    if (isJobPublishedVersion) {
+      blockingReasons.push('This version is currently set as the active published assessment for the job requisition.');
+    }
+
+    const recommendedAction = canHardDelete ? 'DELETE' : canArchive ? 'ARCHIVE' : 'NONE';
+
+    return {
+      assessmentId: assessment._id,
+      title: assessment.title,
+      version: assessment.version,
+      status: assessment.status,
+      jobId: assessment.jobId,
+      canHardDelete,
+      canArchive,
+      recommendedAction,
+      dependencies: {
+        attemptsCount,
+        assignmentsCount,
+        isJobPublishedVersion: !!isJobPublishedVersion,
+      },
+      blockingReasons,
+    };
+  }
+
+  /**
+   * Deletes a draft assessment version if no candidate attempts exist
+   */
+  async deleteAssessment(assessmentId, user) {
+    const assessment = await Assessment.findById(assessmentId);
+    if (!assessment) {
+      const err = new Error('Assessment not found');
+      err.status = 404;
+      throw err;
+    }
+
+    await this.verifyAssessmentAuthorization(assessment, user);
+
+    const deps = await this.getAssessmentDependencies(assessmentId, user);
+    if (!deps.canHardDelete) {
+      const err = new Error(
+        `Cannot permanently delete assessment version: ${deps.blockingReasons.join(' ')} Please archive or retire this version instead.`
+      );
+      err.status = 400;
+      err.dependencies = deps.dependencies;
+      err.blockingReasons = deps.blockingReasons;
+      throw err;
+    }
+
+    await Assessment.findByIdAndDelete(assessmentId);
+
+    // If job was pointing to this draft, clear it
+    await Job.findOneAndUpdate(
+      { _id: assessment.jobId, publishedAssessmentId: assessment._id },
+      { $unset: { publishedAssessmentId: 1 } }
+    );
+
+    await AuditLog.create({
+      actorId: user._id,
+      actorEmail: user.email,
+      actorRole: user.role,
+      action: 'ASSESSMENT_DELETED',
+      resourceType: 'Assessment',
+      resourceId: assessmentId.toString(),
+      metadata: {
+        title: assessment.title,
+        version: assessment.version,
+        jobId: assessment.jobId.toString(),
+      },
+      timestamp: new Date(),
+    });
+
+    return {
+      success: true,
+      message: `Draft assessment version ${assessment.version} was permanently deleted.`,
+      deletedId: assessmentId,
+    };
+  }
+
+  /**
+   * Archives an assessment version while preserving historical records
+   */
+  async archiveAssessment(assessmentId, user, reason) {
+    const assessment = await Assessment.findById(assessmentId);
+    if (!assessment) {
+      const err = new Error('Assessment not found');
+      err.status = 404;
+      throw err;
+    }
+
+    await this.verifyAssessmentAuthorization(assessment, user);
+
+    if (assessment.status === 'ARCHIVED') {
+      const err = new Error('Assessment version is already archived.');
+      err.status = 400;
+      throw err;
+    }
+
+    const previousStatus = assessment.status;
+    assessment.status = 'ARCHIVED';
+    assessment.archivedAt = new Date();
+    assessment.archivedBy = user._id;
+    assessment.archiveReason = reason || 'Archived by recruiter';
+    await assessment.save();
+
+    // If this was the active published version for the job, find alternative published version or unset
+    const job = await Job.findById(assessment.jobId);
+    if (job && job.publishedAssessmentId && job.publishedAssessmentId.toString() === assessment._id.toString()) {
+      const alternative = await Assessment.findOne({ jobId: job._id, status: 'PUBLISHED', _id: { $ne: assessment._id } }).sort({ version: -1 });
+      job.publishedAssessmentId = alternative ? alternative._id : null;
+      if (!alternative) job.status = 'DNA_GENERATED';
+      await job.save();
+    }
+
+    await AuditLog.create({
+      actorId: user._id,
+      actorEmail: user.email,
+      actorRole: user.role,
+      action: 'ASSESSMENT_ARCHIVED',
+      resourceType: 'Assessment',
+      resourceId: assessmentId.toString(),
+      metadata: {
+        title: assessment.title,
+        version: assessment.version,
+        previousStatus,
+        reason: assessment.archiveReason,
+        jobId: assessment.jobId.toString(),
+      },
+      timestamp: new Date(),
+    });
+
+    return {
+      success: true,
+      message: `Assessment version ${assessment.version} archived successfully. Candidate attempt history preserved.`,
+      data: assessment,
+    };
   }
 }
 

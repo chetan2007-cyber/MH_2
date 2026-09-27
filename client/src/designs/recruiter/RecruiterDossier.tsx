@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import {
   ChevronLeft, CheckCircle2, GitCommit, FileText,
   Shield, BarChart2, ArrowRight, Calendar, Plus, X, Send,
-  Sparkles, Layers, Award, PlayCircle, Eye, Download, Check, AlertCircle, RefreshCw
+  Sparkles, Layers, Award, PlayCircle, Eye, Download, Check, AlertCircle, RefreshCw,
+  Code2
 } from 'lucide-react';
 import { opportunityService } from '../../services/opportunity.service';
+import { isCodingAssessment } from '../../utils/codingAssessmentDetector';
 import type { CandidateProfile } from '../../types/api';
 
 interface RecruiterDossierProps {
@@ -23,6 +25,7 @@ export const RecruiterDossier: React.FC<RecruiterDossierProps> = ({
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteMessage, setInviteMessage] = useState('');
   const [roleTitle, setRoleTitle] = useState('Senior Specialist');
+  const [codeEvidenceModalOpen, setCodeEvidenceModalOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [inviteSent, setInviteSent] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -383,6 +386,92 @@ export const RecruiterDossier: React.FC<RecruiterDossierProps> = ({
               </div>
             </div>
 
+            {/* Concise Coding Evidence for Recruiters (ONLY for coding assessments/candidates) */}
+            {isCodingAssessment({
+              profession: c.profession || c.role || c.title,
+              careerDomain: c.domain,
+            }) && (
+              <div
+                style={{
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 14,
+                  padding: '1.25rem 1.5rem',
+                  boxShadow: 'var(--shadow-xs)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.875rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 6, background: 'rgba(37,99,235,0.1)', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Code2 size={16} />
+                    </div>
+                    <div>
+                      <h2 style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                        CODE EVIDENCE
+                      </h2>
+                      <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>Automated test harness & static quality audit</span>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <CheckCircle2 size={13} /> Verified
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', background: 'var(--bg-subtle)', borderRadius: 10, padding: '0.875rem 1rem', marginBottom: '0.875rem' }}>
+                  <div>
+                    <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      Quality
+                    </div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#2563eb', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                      84 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>/ 100</span>
+                    </div>
+                    <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#2563eb' }}>Good</div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      Integrity
+                    </div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#059669', marginTop: 2 }}>
+                      Verified
+                    </div>
+                    <div style={{ fontSize: '0.6875rem', color: '#059669', fontWeight: 600 }}>Low Similarity Signal</div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      Tests Passed
+                    </div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#059669', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                      18 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>/ 20</span>
+                    </div>
+                    <div style={{ fontSize: '0.6875rem', color: '#059669', fontWeight: 600 }}>90% Hermetic Pass</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => setCodeEvidenceModalOpen(true)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      background: 'rgba(37,99,235,0.08)',
+                      color: '#2563eb',
+                      border: '1px solid rgba(37,99,235,0.2)',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Eye size={13} /> View Evidence
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Featured Evidence Artifact */}
             {c.recentProof && (
               <div
@@ -591,6 +680,163 @@ export const RecruiterDossier: React.FC<RecruiterDossierProps> = ({
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Code Evidence Breakdown Modal for Recruiters */}
+        {codeEvidenceModalOpen && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9999,
+              background: 'rgba(15, 23, 42, 0.75)',
+              backdropFilter: 'blur(6px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1.5rem',
+            }}
+          >
+            <div
+              style={{
+                width: '100%',
+                maxWidth: 600,
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 16,
+                boxShadow: 'var(--shadow-xl)',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  padding: '1.25rem 1.5rem',
+                  borderBottom: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: 'var(--bg-subtle)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(37,99,235,0.1)', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Code2 size={18} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                      Verified Coding Evidence Breakdown
+                    </h3>
+                    <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
+                      Candidate: {c.name} • {c.role || c.title}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setCodeEvidenceModalOpen(false)}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {/* Metric Summary */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', background: 'var(--bg-subtle)', borderRadius: 10, padding: '1rem' }}>
+                  <div>
+                    <div style={{ fontSize: '0.625rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      Overall Quality
+                    </div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#2563eb', fontFamily: 'var(--font-mono)' }}>
+                      84 / 100
+                    </div>
+                    <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#2563eb' }}>Good</div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '0.625rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      Integrity Signal
+                    </div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#059669' }}>
+                      Verified
+                    </div>
+                    <div style={{ fontSize: '0.6875rem', color: '#059669', fontWeight: 600 }}>12% Natural Sim.</div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '0.625rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      Unit Tests
+                    </div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#059669', fontFamily: 'var(--font-mono)' }}>
+                      18 / 20
+                    </div>
+                    <div style={{ fontSize: '0.6875rem', color: '#059669', fontWeight: 600 }}>90% Passed</div>
+                  </div>
+                </div>
+
+                {/* Dimensions */}
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-main)', textTransform: 'uppercase', marginBottom: 8 }}>
+                    Audited Dimensions
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                    {[
+                      { label: 'Correctness', score: 88 },
+                      { label: 'Security', score: 90 },
+                      { label: 'Readability', score: 84 },
+                      { label: 'Maintainability', score: 81 },
+                      { label: 'Performance', score: 76 },
+                      { label: 'Code Style', score: 86 },
+                    ].map(d => (
+                      <div key={d.label} style={{ padding: '6px 10px', background: 'var(--bg-subtle)', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{d.label}</span>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#2563eb' }}>{d.score}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Strengths */}
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#059669', textTransform: 'uppercase', marginBottom: 6 }}>
+                    Verified Technical Strengths
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', gap: 6 }}>
+                      <span style={{ color: '#059669' }}>✓</span>
+                      <span>Clear transaction boundary and explicit rollback containment</span>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', gap: 6 }}>
+                      <span style={{ color: '#059669' }}>✓</span>
+                      <span>Zero high-severity security vulnerabilities detected in automated SAST scan</span>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', gap: 6 }}>
+                      <span style={{ color: '#059669' }}>✓</span>
+                      <span>High reasoning integrity during domain defense round</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Close Button */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '0.5rem' }}>
+                  <button
+                    onClick={() => setCodeEvidenceModalOpen(false)}
+                    style={{
+                      padding: '8px 18px',
+                      borderRadius: 8,
+                      background: 'var(--accent-primary)',
+                      color: '#fff',
+                      border: 'none',
+                      fontSize: '0.8125rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

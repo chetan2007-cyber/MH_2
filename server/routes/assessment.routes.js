@@ -9,5 +9,9 @@ router.post('/generate', optionalAuthenticate, assessmentController.generateAsse
 router.post('/generate/:jobId', optionalAuthenticate, assessmentController.generateAssessment);
 router.patch('/:id', optionalAuthenticate, assessmentController.updateAssessment);
 router.post('/:id/publish', optionalAuthenticate, assessmentController.publishAssessment);
+router.get('/:id/dependencies', optionalAuthenticate, assessmentController.getAssessmentDependencies);
+router.delete('/:id', optionalAuthenticate, assessmentController.deleteAssessment);
+router.patch('/:id/archive', optionalAuthenticate, assessmentController.archiveAssessment);
+router.post('/:id/archive', optionalAuthenticate, assessmentController.archiveAssessment);
 
 module.exports = router;

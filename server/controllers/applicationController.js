@@ -120,3 +120,32 @@ exports.makeFinalDecision = async (req, res) => {
   }
 };
 
+exports.assignJobToCandidate = async (req, res) => {
+  try {
+    const { jobId, candidateId, candidateEmail, candidateName, notes } = req.body;
+    if (!jobId) {
+      return res.status(400).json({ success: false, error: 'Job ID is required' });
+    }
+
+    const assignedBy = req.user || { name: 'Expert Reviewer', role: 'REVIEWER' };
+    const result = await applicationService.assignJobToCandidate({
+      jobId,
+      candidateId,
+      candidateEmail,
+      candidateName,
+      assignedBy,
+      notes,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `Practical assessment successfully sent to ${result.candidate.name}`,
+      data: result,
+    });
+  } catch (error) {
+    console.error('Assign job to candidate error:', error);
+    res.status(400).json({ success: false, error: error.message });
+  }
+};
+
+

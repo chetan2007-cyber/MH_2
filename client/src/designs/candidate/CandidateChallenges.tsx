@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
 import {
   Search, SlidersHorizontal, ArrowRight, Clock, CheckCircle2,
-  Lock, Zap, Star, ChevronDown, X, Filter, Sparkles, RefreshCw, AlertCircle
+  Lock, Zap, Star, ChevronDown, X, Filter, Sparkles, RefreshCw, AlertCircle,
+  Briefcase, Dna, FileText, Send, Building2
 } from 'lucide-react';
 import { useCareer } from '../../context/CareerContext';
 import { CAREER_DOMAINS } from '../../data/careerTaxonomy';
 import { useChallenges } from '../../hooks/useChallenges';
-import type { Challenge } from '../../types/api';
+import { useJobs } from '../../hooks/useJobs';
+import { CandidateAssessmentModal } from '../../components/candidate/CandidateAssessmentModal';
+import { applicationService } from '../../services/application.service';
+import { useToast } from '../../components/Toast';
+import type { Challenge, Job } from '../../types/api';
 
 interface CandidateChallengesProps {
   onEnterWorkspace: (challenge?: any) => void;
@@ -177,18 +182,51 @@ const ChallengeCard: React.FC<{
 };
 
 export const CandidateChallenges: React.FC<CandidateChallengesProps> = ({ onEnterWorkspace }) => {
+  const { showToast } = useToast();
   const { selectedDomain, selectedProfession, setDomainById } = useCareer();
   const [activeDomainTab, setActiveDomainTab] = useState<string>(selectedDomain.id);
   const [difficulty, setDifficulty] = useState<string>('All');
   const [search, setSearch] = useState<string>('');
+  const [selectedJobAssessment, setSelectedJobAssessment] = useState<Job | null>(null);
+  const [activeApplicationId, setActiveApplicationId] = useState<string>('');
+  const [loadingAssessment, setLoadingAssessment] = useState<boolean>(false);
 
   const domainConfig = CAREER_DOMAINS.find(d => d.id === activeDomainTab) || selectedDomain;
+
+  const handleTakeAssessment = async (job: Job) => {
+    setLoadingAssessment(true);
+    try {
+      const myApps = await applicationService.getMyApplications();
+      let app = myApps.find(a => (a.jobId as any)?._id === job._id || a.jobId === job._id);
+      if (!app) {
+        app = await applicationService.applyToJob(job._id);
+      }
+      setActiveApplicationId(app._id);
+      setSelectedJobAssessment(job);
+    } catch (err: any) {
+      console.warn('Fallback to direct assessment preview:', err.message);
+      setActiveApplicationId('');
+      setSelectedJobAssessment(job);
+    } finally {
+      setLoadingAssessment(false);
+    }
+  };
 
   // Real backend query through hook
   const { challenges, loading, error, refetch } = useChallenges({
     domain: domainConfig.name,
     difficulty: difficulty !== 'All' ? difficulty : undefined,
     search: search || undefined,
+  });
+
+  // Also query recruiter jobs & live assessments
+  const { jobs } = useJobs();
+  const recruiterLiveJobs = jobs.filter(j => {
+    const matchesDomain =
+      j.careerDomain?.toLowerCase() === domainConfig.id?.toLowerCase() ||
+      j.careerDomain?.toLowerCase() === domainConfig.name?.toLowerCase() ||
+      j.careerDomain?.toLowerCase() === domainConfig.name?.toLowerCase().replace(/ & /g, '_').replace(/ /g, '_');
+    return matchesDomain;
   });
 
   return (
@@ -200,7 +238,7 @@ export const CandidateChallenges: React.FC<CandidateChallengesProps> = ({ onEnte
             fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase',
             letterSpacing: '0.1em', color: domainConfig.color
           }}>
-            {domainConfig.name} Challenge Catalog
+            {domainConfig.name} Challenge & Requisition Catalog
           </span>
         </div>
         <h1 style={{
@@ -211,7 +249,7 @@ export const CandidateChallenges: React.FC<CandidateChallengesProps> = ({ onEnte
           Find something worth proving.
         </h1>
         <p style={{ fontSize: '1rem', color: 'var(--text-secondary)', maxWidth: 620 }}>
-          Real work challenges evaluated on actual deliverables — not multiple-choice trivia.
+          Real work challenges and enterprise recruiter assessments evaluated on actual deliverables — not multiple-choice trivia.
         </p>
       </div>
 
@@ -242,6 +280,78 @@ export const CandidateChallenges: React.FC<CandidateChallengesProps> = ({ onEnte
           );
         })}
       </div>
+
+      {/* ── LIVE RECRUITER ASSESSMENTS HIGHLIGHT ── */}
+      {recruiterLiveJobs.length > 0 && (
+        <div style={{ marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.875rem' }}>
+            <Sparkles size={16} color="#059669" />
+            <h2 style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+              Live Recruiter Enterprise Assessments ({recruiterLiveJobs.length})
+            </h2>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+            {recruiterLiveJobs.map(job => (
+              <div
+                key={job._id}
+                style={{
+                  background: 'linear-gradient(135deg, rgba(5,150,105,0.04), rgba(16,185,129,0.02))',
+                  border: '1.5px solid rgba(5,150,105,0.25)',
+                  borderRadius: 14,
+                  padding: '1.25rem 1.5rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 16,
+                  boxShadow: 'var(--shadow-xs)'
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <span style={{
+                      fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase',
+                      padding: '2px 8px', borderRadius: 4, background: 'rgba(5,150,105,0.15)', color: '#059669'
+                    }}>
+                      Live Requisition Assessment
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      {job.department} · {job.experience} experience
+                    </span>
+                  </div>
+
+                  <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 4px' }}>
+                    {job.title}
+                  </h3>
+                  <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', margin: '0 0 8px', maxWidth: 720, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {job.description}
+                  </p>
+
+                  <div style={{ display: 'flex', gap: 12, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    <span><strong>Duration:</strong> {job.assessmentDurationMinutes || 60} mins</span>
+                    <span><strong>Difficulty:</strong> {job.difficulty}</span>
+                    <span><strong>Competencies:</strong> {job.competencies?.length || 5} Calibrated Dimensions</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleTakeAssessment(job)}
+                  disabled={loadingAssessment}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '9px 18px', borderRadius: 8,
+                    background: '#059669', color: '#fff', border: 'none',
+                    fontSize: '0.8125rem', fontWeight: 700, cursor: loadingAssessment ? 'wait' : 'pointer', flexShrink: 0
+                  }}
+                >
+                  <Send size={13} />
+                  <span>{loadingAssessment ? 'Launching...' : 'Take Assessment'}</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── SEARCH & DIFFICULTY BAR ── */}
       <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
@@ -369,7 +479,7 @@ export const CandidateChallenges: React.FC<CandidateChallengesProps> = ({ onEnte
       )}
 
       {/* ── EMPTY STATE ── */}
-      {!loading && !error && challenges.length === 0 && (
+      {!loading && !error && challenges.length === 0 && recruiterLiveJobs.length === 0 && (
         <div style={{
           textAlign: 'center', padding: '4rem',
           background: 'var(--bg-surface)', borderRadius: 14,
@@ -395,6 +505,43 @@ export const CandidateChallenges: React.FC<CandidateChallengesProps> = ({ onEnte
           )}
         </div>
       )}
+
+      {/* Candidate Assessment Modal for Recruiter Jobs */}
+      {selectedJobAssessment && (
+        <CandidateAssessmentModal
+          applicationId={activeApplicationId}
+          isOpen={!!selectedJobAssessment}
+          onClose={() => {
+            setSelectedJobAssessment(null);
+            setActiveApplicationId('');
+          }}
+          previewMode={!activeApplicationId}
+          onSubmitted={() => {
+            showToast(
+              'success',
+              'Assessment Submitted! 🚀',
+              'Your deliverable and engineering decision records are now queued for reviewer inspection.'
+            );
+            refetch();
+          }}
+          previewAssessment={{
+            title: `${selectedJobAssessment.title} — Practical Proof Assessment`,
+            scenario: `Enterprise production requirements for ${selectedJobAssessment.title}. Prove hands-on mastery in ${selectedJobAssessment.department}.`,
+            practicalTask: selectedJobAssessment.description,
+            timeLimitMinutes: selectedJobAssessment.assessmentDurationMinutes || 60,
+            difficulty: selectedJobAssessment.difficulty || 'Advanced',
+            constraints: selectedJobAssessment.jobDNA?.mandatoryRequirements || ['Provide Architectural Decision Record (ADR)', 'Pass all automated tests'],
+            deliverables: ['Production code repository / 3D CAD models', 'Engineering Decision Record (EDR/ADR)', 'Hermetic verification tests'],
+            rubricCriteria: (selectedJobAssessment.competencies || []).map((c, i) => ({
+              id: `comp_${i}`,
+              label: c.name,
+              weight: c.weight,
+              description: c.description || 'Verified competency standard',
+            })),
+          }}
+        />
+      )}
     </div>
   );
 };
+
